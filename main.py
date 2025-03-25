@@ -1,18 +1,15 @@
 import os
-import shutil
 import logging
 import pytesseract
-import psutil
 from pdf2image import convert_from_path
 from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
-from langchain_openai import ChatOpenAI  # Corrected import for ChatOpenAI
+from langchain_openai import ChatOpenAI  
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
-from langchain_openai.embeddings import OpenAIEmbeddings  # Corrected import for OpenAIEmbeddings
-from chromadb.config import Settings
+from langchain_openai.embeddings import OpenAIEmbeddings 
 import chromadb
 
 # Load environment variables
