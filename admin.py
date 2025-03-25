@@ -3,7 +3,7 @@ import os
 import json
 import pandas as pd
 from datetime import datetime
-from main import process_all_pdfs  # ✅ Import function to process PDFs at upload
+from main_2 import process_all_pdfs  # ✅ Updated import to use main_2.py
 
 # Define admin credentials
 ADMIN_USERNAME = "admin"
@@ -82,16 +82,14 @@ if uploaded_pdf is not None and not st.session_state.upload_complete:
 
             st.info(f"⏳ Processing {uploaded_pdf.name}... (This may take a while)")
 
-            # ✅ Ensure ChromaDB is properly released before storing new embeddings
-            if any(fname.endswith(".pdf") for fname in os.listdir(folder)):
-                process_all_pdfs(folder)
-                st.success(f"✅ Uploaded & Processed {uploaded_pdf.name} in {upload_destination} folder.")
-            else:
-                st.warning("⚠️ No valid PDFs found to process. Upload at least one PDF.")
+            # ✅ Process PDFs and store in ChromaDB collections
+            role = "Teacher" if folder == teacher_folder else "Student"
+            process_all_pdfs(folder, role)  # Pass the folder and role to process_all_pdfs
+            st.success(f"✅ Uploaded & Processed {uploaded_pdf.name} in {upload_destination} folder.")
 
     # ✅ Set upload complete flag to prevent rerun
     st.session_state.upload_complete = True
-    st.rerun()  # ✅ Corrected this line!
+    st.rerun()
 
 # Section 2: Delete PDFs
 st.subheader("❌ Delete PDFs")

@@ -4,7 +4,7 @@ import json
 import logging
 import pandas as pd
 from datetime import datetime
-from main import get_answer_from_pdfs  # Ensure this function can accept no question during initialization
+from main import get_answer_from_pdfs  # Updated import to use main_2.py
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -65,9 +65,6 @@ else:
     role_folder = role_folder_map.get(role, "")
     class_folder = os.path.join(CLASS_FOLDERS, class_key, f"Class {selected_class.split(' ')[1]}_{role_folder}")
 
-# Debugging line: Print the constructed folder path
-st.write(f"DEBUG: Constructed folder path is: {class_folder}")
-
 # Ensure the directory exists
 os.makedirs(class_folder, exist_ok=True)
 
@@ -123,7 +120,8 @@ if pdf_files:
 
     if "qa_agent" not in st.session_state:
         try:
-            st.session_state.qa_agent = get_answer_from_pdfs(class_folder)
+            # Pass the role to the get_answer_from_pdfs function
+            st.session_state.qa_agent = get_answer_from_pdfs(class_folder, role)
             if st.session_state.qa_agent is None:
                 st.error("Error: No valid PDF files processed or an error occurred during initialization.")
                 st.stop()

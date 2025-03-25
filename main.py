@@ -12,6 +12,8 @@ from langchain_openai import ChatOpenAI  # Corrected import for ChatOpenAI
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from langchain_openai.embeddings import OpenAIEmbeddings  # Corrected import for OpenAIEmbeddings
+from chromadb.config import Settings
+import chromadb
 
 # Load environment variables
 load_dotenv()
@@ -19,7 +21,8 @@ load_dotenv()
 # Retrieve values from .env
 TESSERACT_PATH = os.getenv("TESSERACT_PATH")
 POPPLER_PATH = os.getenv("POPPLER_PATH")
-PERSIST_DIRECTORY = os.getenv("PERSIST_DIRECTORY", "data/chroma_db")
+CHROMA_SERVER_HOST = os.getenv("CHROMA_SERVER_HOST", "localhost")
+CHROMA_SERVER_PORT = int(os.getenv("CHROMA_SERVER_PORT", 8000))
 CLASS_FOLDERS = os.getenv("CLASS_FOLDERS", "data/class_folders")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
@@ -54,7 +57,7 @@ def extract_text_with_ocr(pdf_path):
     text = "\n".join(pytesseract.image_to_string(image) for image in images)
     return text
 
-def process_all_pdfs(class_folder):
+def process_all_pdfs(class_folder, role):
     """Processes all PDFs in a class folder and creates a unified knowledge base."""
     pdf_files = [f for f in os.listdir(class_folder) if f.endswith(".pdf")]
 
@@ -63,16 +66,6 @@ def process_all_pdfs(class_folder):
         return None
 
     logging.info(f"Processing {len(pdf_files)} PDFs from {class_folder}...")
-
-    kill_chroma_process()
-
-    if os.path.exists(PERSIST_DIRECTORY) and os.path.isdir(PERSIST_DIRECTORY):
-        try:
-            shutil.rmtree(PERSIST_DIRECTORY)
-            logging.info("✅ Old embeddings cleared before processing PDFs.")
-        except Exception as e:
-            logging.error(f"❌ Failed to clear old ChromaDB store: {e}")
-            return None
 
     all_text_chunks = []
     metadata_list = []
@@ -103,15 +96,25 @@ def process_all_pdfs(class_folder):
 
     logging.info(f"Stored {len(all_text_chunks)} chunks from all PDFs.")
 
-    document_names = ", ".join(set(metadata["source"] for metadata in metadata_list))
+    
+    chroma_client = chromadb.HttpClient(host=CHROMA_SERVER_HOST, port=CHROMA_SERVER_PORT)
+
+    # Create or get a collection for the class and role
+    collection_name = f"{os.path.basename(class_folder)}_{role}".replace(" ","")
+    collection = chroma_client.get_or_create_collection(name=collection_name)
+
+    # Add texts with metadata to the collection
+    collection.add(
+        documents=all_text_chunks,
+        metadatas=metadata_list,
+        ids=[f"{metadata['source']}_chunk_{metadata['chunk_index']}" for metadata in metadata_list]
+    )
+
+    logging.info(f"Collection '{collection_name}' updated with all class PDFs.")
 
     # Use OpenAI Embeddings
-    embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
-    vectorstore = Chroma(persist_directory=PERSIST_DIRECTORY, embedding_function=embeddings)
-
-    vectorstore.add_texts(all_text_chunks, metadatas=metadata_list)
-
-    logging.info(f"Vector store updated with all class PDFs.")
+    embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY,model="text-embedding-3-large",dimensions=384)
+    vectorstore = Chroma(client=chroma_client, collection_name=collection_name, embedding_function=embeddings)
 
     # Use ChatOpenAI for GPT-4
     llm = ChatOpenAI(model="gpt-4", temperature=0)
@@ -140,7 +143,7 @@ def process_all_pdfs(class_folder):
         chain_type="stuff",
         retriever=retriever,
         return_source_documents=True,
-        chain_type_kwargs={"prompt": PROMPT.partial(document_names=document_names)}
+        chain_type_kwargs={"prompt": PROMPT.partial(document_names=", ".join(set(metadata["source"] for metadata in metadata_list)))}
     )
 
     return qa_chain
@@ -169,9 +172,9 @@ class QAAgent:
             logging.error(f"An error occurred while retrieving the answer: {e}")
             return "Error: Something went wrong while processing your question. Please try again later."
 
-def get_answer_from_pdfs(class_folder):
+def get_answer_from_pdfs(class_folder, role):
     try:
-        qa_chain = process_all_pdfs(class_folder)
+        qa_chain = process_all_pdfs(class_folder, role)
 
         if qa_chain is None:
             logging.error("Failed to process PDFs or create a QA chain.")
