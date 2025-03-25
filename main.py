@@ -32,24 +32,6 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 # Set Tesseract path
 pytesseract.pytesseract.tesseract_cmd = TESSERACT_PATH
 
-def kill_chroma_process():
-    """Find and terminate processes using ChromaDB files without killing Streamlit."""
-    chroma_files = ["chroma.sqlite3", "chroma_lock.sqlite3"]
-    current_pid = os.getpid()
-
-    for proc in psutil.process_iter(["pid", "name", "open_files"]):
-        try:
-            if proc.info["open_files"]:
-                for file in proc.info["open_files"]:
-                    if any(chroma_file in file.path for chroma_file in chroma_files):
-                        if proc.info["pid"] != current_pid:
-                            logging.warning(f"Killing process {proc.info['name']} (PID: {proc.info['pid']}) using ChromaDB files.")
-                            proc.terminate()
-                        else:
-                            logging.info("Skipping termination of main Python/Streamlit process.")
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            continue
-
 def extract_text_with_ocr(pdf_path):
     """Extracts text from scanned PDFs using OCR."""
     logging.info(f"Using OCR to extract text from {pdf_path}...")
