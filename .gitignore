@@ -1,0 +1,53 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environment
+env/
+venv/
+school_qa_env/
+
+# Environment variables
+.env
+
+# Logs
+*.log
+*.out
+*.err
+logs/
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Python cache files
+*.egg-info/
+.eggs/
+*.egg
+
+# IDE-specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data folders
+data/chroma_db/
+data/class_folders/
+data/access_logs.csv
+data/passwords.json
+
+# Docker files
+*.pid
+*.sock
+
+# Test artifacts
+*.coverage
+coverage.xml
+*.pytest_cache/
+htmlcov/
+
+# Streamlit cache
+.streamlit/

@@ -54,11 +54,16 @@ role_folder_map = {
 }
 
 # Normalize the selected class to match folder names (class_1, class_2, ...)
-class_key = f"class_{selected_class.split(' ')[1]}"  # Convert to match folder names like "class_1"
-role_folder = role_folder_map.get(role, "")
-
-# Construct the path to the relevant class and role folder
-class_folder = os.path.join(CLASS_FOLDERS, class_key, f"Class {selected_class.split(' ')[1]}_{role_folder}")
+if selected_class == "General":
+    # For "General", construct the folder path as classes/general/general_<role>
+    class_key = "general"
+    role_folder = role_folder_map.get(role, "")
+    class_folder = os.path.join(CLASS_FOLDERS, class_key, f"general_{role_folder}")
+else:
+    # For specific classes, construct the folder path as classes/class_<number>/Class <number>_<role>
+    class_key = f"class_{selected_class.split(' ')[1]}"  # Convert to match folder names like "class_1"
+    role_folder = role_folder_map.get(role, "")
+    class_folder = os.path.join(CLASS_FOLDERS, class_key, f"Class {selected_class.split(' ')[1]}_{role_folder}")
 
 # Debugging line: Print the constructed folder path
 st.write(f"DEBUG: Constructed folder path is: {class_folder}")
@@ -76,7 +81,11 @@ password_input = st.text_input("Enter Password:", type="password", key="password
 if st.button("Submit Password"):
     if role == "Principal":
         correct_password = CLASS_PASSWORDS.get("Principal", "")
+    elif selected_class == "General":
+        # For "General", retrieve the password from the "general" section
+        correct_password = CLASS_PASSWORDS.get("general", {}).get(role, "")
     else:
+        # For specific classes, retrieve the password using the class key
         correct_password = CLASS_PASSWORDS.get(f"class_{selected_class.split(' ')[1]}", {}).get(role, "")
 
     if password_input == correct_password:
@@ -112,34 +121,61 @@ if pdf_files:
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
 
-    # Initialize QA Agent
     if "qa_agent" not in st.session_state:
-        # Preload the QA agent with the correct class folder, initializing with an empty question initially
         try:
-            st.session_state.qa_agent = get_answer_from_pdfs(class_folder, "")  # Initialize with an empty string question
+            st.session_state.qa_agent = get_answer_from_pdfs(class_folder)
             if st.session_state.qa_agent is None:
-                st.error("Error: No valid PDF files processed or an error occurred during PDF processing.")
-                st.stop()  # Stop execution if there was an issue
+                st.error("Error: No valid PDF files processed or an error occurred during initialization.")
+                st.stop()
         except Exception as e:
-            st.error(f"An error occurred while initializing the QA agent: {str(e)}")
+            st.error(f"An error occurred while initializing the QA agent: {e}")
             st.stop()
 
+    # WhatsApp-like chat container
     chat_container = st.container()
-    for entry in st.session_state.get("chat_history", []):
-        chat_container.markdown(f"{entry['type']}: {entry['content']}")
+    with chat_container:
+        for entry in st.session_state.get("chat_history", []):
+            if entry["type"] == "user":
+                # User message (right-aligned, green background)
+                st.markdown(
+                    f"""
+                    <div style="text-align: right; background-color: #DCF8C6; padding: 10px; border-radius: 10px; margin: 5px;">
+                        <strong>You:</strong> {entry['content']}
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            elif entry["type"] == "bot":
+                # Bot message (left-aligned, gray background)
+                st.markdown(
+                    f"""
+                    <div style="text-align: left; background-color: #EDEDED; padding: 10px; border-radius: 10px; margin: 5px;">
+                        <strong>Bot:</strong> {entry['content']}
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
+    # Input form for user questions
     with st.form("question_form"):
         question = st.text_input("Ask a question about the PDFs:", key="question")
         submit_button = st.form_submit_button("Ask")
 
-    if submit_button and question:
-        # Add the user question to the chat history
-        st.session_state.chat_history.append({"type": "user", "content": question})
+    if submit_button:
+        if not question.strip():
+            st.warning("⚠️ Please enter a valid question before submitting.")
+        else:
+            # Add the user question to the chat history
+            st.session_state.chat_history.append({"type": "user", "content": question})
 
-        with st.spinner("\ud83e\udd16 Generating response..."):
-            # Assuming qa_agent has a method like ask_question instead of run
-            response = st.session_state.qa_agent.ask_question(question)  # Replace run with ask_question
+            with st.spinner("🤖 Generating response..."):
+                try:
+                    # Call the ask_question method
+                    response = st.session_state.qa_agent.ask_question(question)
+                except Exception as e:
+                    logging.error(f"Error while generating response: {e}")
+                    response = "Error: Unable to process your question. Please try again later."
 
-        # Add the bot's response to the chat history
-        st.session_state.chat_history.append({"type": "bot", "content": response})
-        st.rerun()  # Rerun to update chat history and UI
+            # Add the bot's response to the chat history
+            st.session_state.chat_history.append({"type": "bot", "content": response})
+            st.rerun()  # Rerun to update chat history and UI
