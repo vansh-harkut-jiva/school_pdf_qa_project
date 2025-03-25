@@ -4,7 +4,7 @@ import json
 import logging
 import pandas as pd
 from datetime import datetime
-from main import get_answer_from_pdfs  # Updated import to use main_2.py
+from main import get_answer_from_pdfs  
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")

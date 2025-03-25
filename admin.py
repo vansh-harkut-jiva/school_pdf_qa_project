@@ -3,7 +3,7 @@ import os
 import json
 import pandas as pd
 from datetime import datetime
-from main_2 import process_all_pdfs  # ✅ Updated import to use main_2.py
+from main import process_all_pdfs  
 
 # Define admin credentials
 ADMIN_USERNAME = "admin"
