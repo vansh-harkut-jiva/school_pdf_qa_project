@@ -6,10 +6,10 @@ from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
-from langchain_openai import ChatOpenAI  
+from langchain_openai import ChatOpenAI
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
-from langchain_openai.embeddings import OpenAIEmbeddings 
+from langchain_openai.embeddings import OpenAIEmbeddings
 import chromadb
 
 # Load environment variables
@@ -75,11 +75,10 @@ def process_all_pdfs(class_folder, role):
 
     logging.info(f"Stored {len(all_text_chunks)} chunks from all PDFs.")
 
-    
     chroma_client = chromadb.HttpClient(host=CHROMA_SERVER_HOST, port=CHROMA_SERVER_PORT)
 
     # Create or get a collection for the class and role
-    collection_name = f"{os.path.basename(class_folder)}_{role}".replace(" ","")
+    collection_name = f"{os.path.basename(class_folder)}_{role}".replace(" ", "")
     collection = chroma_client.get_or_create_collection(name=collection_name)
 
     # Add texts with metadata to the collection
@@ -90,42 +89,7 @@ def process_all_pdfs(class_folder, role):
     )
 
     logging.info(f"Collection '{collection_name}' updated with all class PDFs.")
-
-    # Use OpenAI Embeddings
-    embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY,model="text-embedding-3-large",dimensions=384)
-    vectorstore = Chroma(client=chroma_client, collection_name=collection_name, embedding_function=embeddings)
-
-    # Use ChatOpenAI for GPT-4
-    llm = ChatOpenAI(model="gpt-4", temperature=0)
-
-    prompt_template = """
-    You are a highly accurate AI assistant that provides precise answers using ONLY the provided PDF documents.
-    - If the information is found, summarize the relevant details.
-    - If the information is not found in the provided PDFs, mention it and suggest checking the source documents or rephrasing the query.
-
-    📄 **Relevant Document(s):** {document_names}  
-    📜 **Extracted Context:**  
-    {context}  
-
-    🔎 **User Question:**  
-    {question}  
-
-    ✍️ **Final Answer:**  
-    """
-
-    PROMPT = PromptTemplate(template=prompt_template, input_variables=["context", "question", "document_names"])
-
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
-
-    qa_chain = RetrievalQA.from_chain_type(
-        llm=llm,
-        chain_type="stuff",
-        retriever=retriever,
-        return_source_documents=True,
-        chain_type_kwargs={"prompt": PROMPT.partial(document_names=", ".join(set(metadata["source"] for metadata in metadata_list)))}
-    )
-
-    return qa_chain
+    return collection_name
 
 class QAAgent:
     """Wrapper class for the QA chain to provide an `ask_question` method."""
@@ -151,13 +115,52 @@ class QAAgent:
             logging.error(f"An error occurred while retrieving the answer: {e}")
             return "Error: Something went wrong while processing your question. Please try again later."
 
-def get_answer_from_pdfs(class_folder, role):
+def get_answer_from_pdfs(collection_name):
+    """
+    Connects to a ChromaDB collection and initializes a QA agent.
+    """
     try:
-        qa_chain = process_all_pdfs(class_folder, role)
+        # Connect to ChromaDB
+        chroma_client = chromadb.HttpClient(host=CHROMA_SERVER_HOST, port=CHROMA_SERVER_PORT)
 
-        if qa_chain is None:
-            logging.error("Failed to process PDFs or create a QA chain.")
-            return None
+        # Use OpenAI embeddings
+        embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY, model="text-embedding-3-large", dimensions=384)
+
+        # Initialize Chroma vector store
+        vectorstore = Chroma(client=chroma_client, collection_name=collection_name, embedding_function=embeddings)
+
+        # Use ChatOpenAI for GPT-4
+        llm = ChatOpenAI(model="gpt-4", temperature=0)
+
+        # Define the prompt template
+        prompt_template = """
+        You are a highly accurate AI assistant that provides precise answers using ONLY the provided PDF documents.
+        - If the information is found, summarize the relevant details.
+        - If the information is not found in the provided PDFs, mention it and suggest checking the source documents or rephrasing the query.
+
+        📄 **Relevant Document(s):** {document_names}  
+        📜 **Extracted Context:**  
+        {context}  
+
+        🔎 **User Question:**  
+        {question}  
+
+        ✍️ **Final Answer:**  
+        """
+
+        PROMPT = PromptTemplate(template=prompt_template, input_variables=["context", "question", "document_names"])
+
+        # Initialize retriever
+        retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+
+        # Initialize QA chain
+        qa_chain = RetrievalQA.from_chain_type(
+            llm=llm,
+            chain_type="stuff",
+            retriever=retriever,
+            return_source_documents=True,
+            chain_type_kwargs={"prompt": PROMPT.partial(document_names="")}
+        )
 
         return QAAgent(qa_chain)
 
