@@ -39,6 +39,16 @@ def extract_text_with_ocr(pdf_path):
 
 def process_all_pdfs(class_folder, role):
     """Processes all PDFs in a class folder and creates a unified knowledge base."""
+    # Construct the collection name
+    if "general" in class_folder.lower():
+        collection_name = f"general_{role}"
+    else:
+        class_number = os.path.basename(class_folder).split('_')[1]
+        collection_name = f"class_{class_number}_{role}"
+
+    logging.info(f"Admin: Creating or updating collection: {collection_name}")
+
+    # Existing logic for processing PDFs
     pdf_files = [f for f in os.listdir(class_folder) if f.endswith(".pdf")]
 
     if not pdf_files:
@@ -79,7 +89,6 @@ def process_all_pdfs(class_folder, role):
     chroma_client = chromadb.HttpClient(host=CHROMA_SERVER_HOST, port=CHROMA_SERVER_PORT)
 
     # Create or get a collection for the class and role
-    collection_name = f"{os.path.basename(class_folder)}_{role}".replace(" ", "")
     collection = chroma_client.get_or_create_collection(name=collection_name)
 
     # Add texts with metadata to the collection
