@@ -11,6 +11,7 @@ from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from langchain_openai.embeddings import OpenAIEmbeddings
 import chromadb
+import streamlit as st
 
 # Load environment variables
 load_dotenv()
@@ -18,10 +19,10 @@ load_dotenv()
 # Retrieve values from .env
 TESSERACT_PATH = os.getenv("TESSERACT_PATH")
 POPPLER_PATH = os.getenv("POPPLER_PATH")
-CHROMA_SERVER_HOST = os.getenv("CHROMA_SERVER_HOST", "localhost")
-CHROMA_SERVER_PORT = int(os.getenv("CHROMA_SERVER_PORT", 8000))
+CHROMA_SERVER_HOST = st.secrets.chroma.server
+CHROMA_SERVER_PORT = int(st.secrets.chroma.port)
 CLASS_FOLDERS = os.getenv("CLASS_FOLDERS", "data/class_folders")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_API_KEY = st.secrets.openai.api_key
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -130,7 +131,7 @@ def get_answer_from_pdfs(collection_name):
         vectorstore = Chroma(client=chroma_client, collection_name=collection_name, embedding_function=embeddings)
 
         # Use ChatOpenAI for GPT-4
-        llm = ChatOpenAI(model="gpt-4", temperature=0)
+        llm = ChatOpenAI(model="gpt-4o", temperature=0, api_key=OPENAI_API_KEY)
 
         # Define the prompt template
         prompt_template = """
