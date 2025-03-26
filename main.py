@@ -43,7 +43,14 @@ def process_all_pdfs(class_folder, role):
     if "general" in class_folder.lower():
         collection_name = f"general_{role}"
     else:
-        class_number = os.path.basename(class_folder).split('_')[1]
+        # Extract the class number from the folder name
+        folder_name = os.path.basename(class_folder)
+        if "class_" in folder_name.lower():
+            class_number = folder_name.split('_')[1]  # Extract the number after "class_"
+        else:
+            logging.warning(f"Unexpected folder format: {class_folder}. Defaulting to 'unknown'.")
+            class_number = "unknown"
+
         collection_name = f"class_{class_number}_{role}"
 
     logging.info(f"Admin: Creating or updating collection: {collection_name}")
