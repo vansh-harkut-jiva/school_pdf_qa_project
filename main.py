@@ -45,9 +45,15 @@ def process_all_pdfs(class_folder, role):
     else:
         # Extract the class number from the folder name
         folder_name = os.path.basename(class_folder)
+        class_number = None
+
+        # Handle different folder name formats
         if "class_" in folder_name.lower():
             class_number = folder_name.split('_')[1]  # Extract the number after "class_"
-        else:
+        elif "class " in folder_name.lower():
+            class_number = folder_name.split(' ')[1]  # Extract the number after "Class"
+        
+        if class_number is None or not class_number.isdigit():
             logging.warning(f"Unexpected folder format: {class_folder}. Defaulting to 'unknown'.")
             class_number = "unknown"
 
